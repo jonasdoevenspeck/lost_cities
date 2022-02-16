@@ -90,5 +90,19 @@ while(len(card_deck)>0):
         player = 0
 
 
-print(f'score for player 1 is {exps[0].get_total_score}')
-print(f'score for player 2 is {exps[1].get_total_score}')
+print(f'score for player 1 is {exps[0].get_total_score()}')
+print(f'score for player 2 is {exps[1].get_total_score()}')
+
+#%%
+
+#States: Each step of the game can be described by a state
+#cards in our hand, cards on discard pile, nr of cards in deck
+
+#Actions: The decision-maker interacts with the game by taking actions based on the state he is in
+#build/discard
+#draw_blind, draw_discard
+
+#Reward: Taking certain actions can lead to a desirable terminal state (e.g winning the game), which is rewarded
+#end score? or intermediate score as well?
+
+
