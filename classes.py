@@ -58,6 +58,19 @@ class Expedition:
 
         return possible_builds    
 
+
+    def get_total_score(self):
+        total_score = 0
+        for color in self.expeditions.keys():
+            col_score = 0
+            multiplier = 1+self.expeditions[color].count('b')
+            for val in self.expeditions[color]:
+                if isinstance(val, int):
+                    col_score += val
+            col_score = col_score*multiplier-20
+            total_score += col_score
+        return total_score
+
 class Hand:
 
     def __init__(self):

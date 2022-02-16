@@ -88,3 +88,7 @@ while(len(card_deck)>0):
         player = 1
     elif player == 1:
         player = 0
+
+
+print(f'score for player 1 is {exps[0].get_total_score}')
+print(f'score for player 2 is {exps[1].get_total_score}')
