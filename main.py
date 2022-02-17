@@ -37,6 +37,20 @@ for card_idx in range(start_cards):
     hands[0].add_card(card_deck.pop())
     hands[1].add_card(card_deck.pop())
 
+#%% init input space, except cards in own hand everything is unknown
+
+input_space = torch.zeros((16,60))
+action_space = torch.zeros((6,70))
+
+
+for card in hands[0].cards:
+    input_space[0,card['id']-1] = 1
+
+for card in hands[1].cards:
+    input_space[15,card['id']-1] = 1
+
+for card in card_deck:
+    input_space[15,card['id']-1] = 1
 
 #%%
 player = 0
@@ -46,6 +60,9 @@ while(len(card_deck)>0):
 
     exp = exps[player]
     hand = hands[player]
+
+
+    
 
     # can we build?
     possible_builds = exp.get_possible_builds(hand.cards)
@@ -96,7 +113,7 @@ print(f'score for player 2 is {exps[1].get_total_score()}')
 #%%
 
 #States: Each step of the game can be described by a state
-#cards in our hand, cards on discard pile, nr of cards in deck
+#cards in our hand, cards on discard pile, nr of cards in deck, ongoing expeditions
 
 #Actions: The decision-maker interacts with the game by taking actions based on the state he is in
 #build/discard
@@ -105,4 +122,24 @@ print(f'score for player 2 is {exps[1].get_total_score()}')
 #Reward: Taking certain actions can lead to a desirable terminal state (e.g winning the game), which is rewarded
 #end score? or intermediate score as well?
 
+#Q value function is the expected reward for a given state-action pair
+#
+
+#for each state in state space, learn optimal action
+#state 
+#cards_in_hand_cards_on_discard_pile_nr_cards_in_deck_ongoing_expeditions
+#We need deep Q learning since state-action space is too large
+# A neural network maps input states to (action, Q-value) pairs
+# Two networks, every N steps, weight from main net are copied to target net
+# 
+# %%
+
+
+from itertools import combinations 
+
+cards = list(range(60))
+
+a = combinations(cards,2)
+
+# %%
 

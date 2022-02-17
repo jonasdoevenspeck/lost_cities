@@ -67,7 +67,7 @@ class Expedition:
             for val in self.expeditions[color]:
                 if isinstance(val, int):
                     col_score += val
-            col_score = col_score*multiplier-20
+            col_score = (col_score-20)*multiplier
             total_score += col_score
         return total_score
 
