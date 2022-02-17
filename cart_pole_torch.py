@@ -48,6 +48,8 @@ class CustomEnv(gym.Env):
 
         random.shuffle(self.card_deck)
 
+        
+
     def step(self, action):
         # Execute one time step within the environment
         self._take_action(action)
