@@ -18,24 +18,52 @@ import torchvision.transforms as T
 #%% we need to make a custom environment
 
 from gym import spaces
+from classes import Hand, Expedition, Pile
 
 class CustomEnv(gym.Env):
-  """Custom Environment that follows gym interface"""
 
-  def __init__(self,):
-    super(CustomEnv, self).__init__()
-    # Define action and observation space
-    # They must be gym.spaces objects
-    # Example when using discrete actions:
-    self.action_space = spaces.Discrete(420)
-    self.observation_space = spaces.Discrete(960)
+    def __init__(self,):
+        super(CustomEnv, self).__init__()
+        # Define action and observation space
+        # They must be gym.spaces objects
+        # Example when using discrete actions:
+        self.action_space = spaces.Discrete(420)
+        self.observation_space = spaces.Discrete(960)
 
-  def step(self, action):
-    # Execute one time step within the environment
-    ...
-  def reset(self):
-    # Reset the state of the environment to an initial state
-    ...
+
+        total_cards = 60
+        start_cards = 8
+
+        colors = ['green','white','blue','red','yellow']
+        cards = [2,3,4,5,6,7,8,9,10,'b','b','b']
+
+        self.card_deck = []
+        self.discard_deck = []
+        self.expeditions = []
+        id = 1
+        for color in colors:
+            for card in cards:
+                self.card_deck.append({'id': id,'color': color, 'val': card})
+                id +=1
+
+        random.shuffle(self.card_deck)
+
+    def step(self, action):
+        # Execute one time step within the environment
+        self._take_action(action)
+        self.current_step += 1
+        
+        reward = 0
+        obs = self._next_observation()
+        return obs, reward
+
+
+    def reset(self):
+        # Reset the state of the environment to an initial state
+        ...
+
+    def _take_action(action):
+
 
 
 #%%
