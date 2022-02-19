@@ -118,6 +118,15 @@ class Pile:
         id = card['id']
         color = card['color']
         self.piles[color][:] = [d for d in self.piles[color] if d.get('id') != id]
+        return card
+
+    def draw_card_by_color(self, color):
+        assert len(self.piles[color])>0, f"No cards with color {color}"
+        card = self.piles[color][-1]
+        id = card['id']
+        #color = card['color']
+        self.piles[color][:] = [d for d in self.piles[color] if d.get('id') != id]
+        return card
 
     def get_visible_cards(self):
         visible_cards = []

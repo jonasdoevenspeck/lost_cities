@@ -24,7 +24,7 @@ from classes import Hand, Expedition, Pile
 
 #%% we need to make a custom environment
 
-#TODO: implement illegal moves 
+
 
 
 class CustomEnv(gym.Env):
@@ -57,7 +57,7 @@ class CustomEnv(gym.Env):
         total_cards = 60
         start_cards = 8
 
-        colors = ['green','white','blue','red','yellow']
+        self.colors = ['green','blue','yellow','red','white']
         cards = [2,3,4,5,6,7,8,9,10,'b','b','b']
 
         self.current_step = 0
@@ -65,7 +65,7 @@ class CustomEnv(gym.Env):
         self.discard_deck = []
         self.expeditions = []
         id = 1
-        for color in colors:
+        for color in self.colors:
             for card in cards:
                 self.card_deck.append({'id': id,'color': color, 'val': card})
                 id +=1
@@ -101,6 +101,7 @@ class CustomEnv(gym.Env):
         
         reward = 0
         obs = self._next_observation()
+        print(obs)
         done = False
         info = {}
         return obs, reward, done, info
@@ -128,7 +129,7 @@ class CustomEnv(gym.Env):
         hand_cards_ids = []
         for card in hand_cards:
             hand_cards_ids.append(card['id'])
-        hand_cards_obs = np.asarray(hand_cards)
+        hand_cards_obs = np.asarray(hand_cards_ids)
 
         obs = (visible_cards_obs,top_cards_obs,hand_cards_obs)
         return obs
@@ -143,7 +144,13 @@ class CustomEnv(gym.Env):
         play_action_vec = action[0]
         card_id_played = action[1]
         draw_action_id = action[2]
-        draw_card_id = action[3]
+        draw_pile_id = action[3]
+
+        #determine here if actions are legal, if not, give negative reward
+        #TODO: implement illegal moves 
+
+
+
         print(action)
 
         possible_builds = self.exp.get_possible_builds(self.hand.cards)
@@ -192,10 +199,11 @@ class CustomEnv(gym.Env):
         elif draw_action == 'draw_discard':
             print('draw discard')
             #card_id_draw = draw_card_id
-            new_card = self.get_card_by_id(draw_card_id)
-
+            #new_card = self.get_card_by_id(draw_card_id)
+            color = self.colors[draw_pile_id]
+            #new_card = self.centre_pile.piles[color][-1]
             #need to replace card id by color pile here
-            self.centre_pile.draw_card(new_card) # add card to centre pile
+            drawn_card = self.centre_pile.draw_card_by_color(color) # add card to centre pile
             self.hand.add_card(played_card) # remove card from hand 
 
 
