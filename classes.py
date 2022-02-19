@@ -11,8 +11,9 @@ class Expedition:
 
     def add_card(self,card):
         card_color = card['color']
-        card_val = card['val']
-        self.expeditions[card_color].append(card_val)
+        #card_val = card['val']
+        #card = 
+        self.expeditions[card_color].append(card)
 
     def can_build(self, cards):
 
@@ -49,14 +50,26 @@ class Expedition:
                 #return True
 
             #can always build on a boost
-            elif top_card_exp == 'b':
+            elif top_card_exp['val'] == 'b':
                 possible_builds.append(card)
 
             #check if val in hand is larger than val of started exp in case no boost on top
-            elif isinstance(card_val, int) and (card_val > top_card_exp):
+            elif isinstance(card_val, int) and (card_val > top_card_exp['val']):
                 possible_builds.append(card)
 
         return possible_builds    
+
+
+    def get_top_cards(self):
+        top_cards = []
+
+        for color in self.expeditions.keys():
+            if len(self.expeditions[color]) > 0:
+                top_card_exp = self.expeditions[color][-1]
+                top_cards.append(top_card_exp)
+
+
+        return top_cards  
 
 
     def get_total_score(self):
@@ -64,7 +77,8 @@ class Expedition:
         for color in self.expeditions.keys():
             col_score = 0
             multiplier = 1+self.expeditions[color].count('b')
-            for val in self.expeditions[color]:
+            for card in self.expeditions[color]:
+                val = card['val']
                 if isinstance(val, int):
                     col_score += val
             col_score = (col_score-20)*multiplier

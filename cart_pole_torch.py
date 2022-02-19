@@ -15,10 +15,17 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
 
-#%% we need to make a custom environment
+# from stable_baselines.common.policies import MlpPolicy
+# from stable_baselines.common.vec_env import DummyVecEnv
+# from stable_baselines import PPO2
 
 from gym import spaces
 from classes import Hand, Expedition, Pile
+
+#%% we need to make a custom environment
+
+#TODO: implement illegal moves 
+
 
 class CustomEnv(gym.Env):
 
@@ -27,9 +34,25 @@ class CustomEnv(gym.Env):
         # Define action and observation space
         # They must be gym.spaces objects
         # Example when using discrete actions:
-        self.action_space = spaces.Discrete(420)
-        self.observation_space = spaces.Discrete(960)
+        #self.action_space = spaces.Discrete(69)
+        #self.observation_space = spaces.Discrete(960)
 
+
+        self.action_space = spaces.Tuple((
+                spaces.Discrete(2), # play or discard
+                spaces.Discrete(60), #60 possible cards to be played or discarded
+                spaces.Discrete(2), #draw blind or from pile
+                spaces.Discrete(5))) #draw yellow, blue, white, red or green
+
+        # 0 means no card
+        self.observation_space = spaces.Tuple((
+            spaces.Box(low = 0, high = 60,shape=(1,5), dtype = np.int8), #cards ids on top of draw piles
+            spaces.Box(low = 0, high = 60,shape=(1,5), dtype = np.int8), #cards ids on top of expeditions
+            spaces.Box(low = 1, high = 60,shape=(1,8), dtype = np.int8), #cards ids in hand
+        ))
+
+    def reset(self):
+        # Reset the state of the environment to an initial state
 
         total_cards = 60
         start_cards = 8
@@ -37,6 +60,7 @@ class CustomEnv(gym.Env):
         colors = ['green','white','blue','red','yellow']
         cards = [2,3,4,5,6,7,8,9,10,'b','b','b']
 
+        self.current_step = 0
         self.card_deck = []
         self.discard_deck = []
         self.expeditions = []
@@ -46,9 +70,29 @@ class CustomEnv(gym.Env):
                 self.card_deck.append({'id': id,'color': color, 'val': card})
                 id +=1
 
+        self.starting_deck = self.card_deck.copy()
+
         random.shuffle(self.card_deck)
 
-        
+        self.hand = Hand()
+        self.exp = Expedition()
+        self.centre_pile = Pile()
+
+        for card_idx in range(start_cards):
+            self.hand.add_card(self.card_deck.pop())
+            #self.hand.add_card(self.card_deck.pop())
+
+    def get_card_by_id(self, id):
+
+        for card in self.starting_deck:
+            if card['id'] == id:
+                return card
+
+    def get_id_by_card(self, card):
+
+        for card in self.starting_deck:
+            id = card['id']
+            return id
 
     def step(self, action):
         # Execute one time step within the environment
@@ -57,18 +101,117 @@ class CustomEnv(gym.Env):
         
         reward = 0
         obs = self._next_observation()
-        return obs, reward
+        done = False
+        info = {}
+        return obs, reward, done, info
 
 
-    def reset(self):
-        # Reset the state of the environment to an initial state
-        ...
+    def _next_observation(self):
 
-    def _take_action(action):
+        visible_cards = self.centre_pile.get_visible_cards()
+        visible_card_ids = []
+        for card in visible_cards:
+            visible_card_ids.append(card['id'])
 
+        visible_cards_obs = np.zeros((5))
+        visible_cards_obs[0:len(visible_card_ids)] = np.asarray(visible_card_ids)
+
+        top_cards = self.exp.get_top_cards()
+        top_cards_ids = []
+        for card in top_cards:
+            top_cards_ids.append(card['id'])
+
+        top_cards_obs = np.zeros((5))
+        top_cards_obs[0:len(top_cards_ids)] = np.asarray(top_cards_ids)
+
+        hand_cards = self.hand.cards
+        hand_cards_ids = []
+        for card in hand_cards:
+            hand_cards_ids.append(card['id'])
+        hand_cards_obs = np.asarray(hand_cards)
+
+        obs = (visible_cards_obs,top_cards_obs,hand_cards_obs)
+        return obs
+
+
+    def _take_action(self,action):
+
+        play_actions = ['build','discard']
+        draw_actions = ['draw_blind','draw_discard']
+
+    
+        play_action_vec = action[0]
+        card_id_played = action[1]
+        draw_action_id = action[2]
+        draw_card_id = action[3]
+        print(action)
+
+        possible_builds = self.exp.get_possible_builds(self.hand.cards)
+        
+        possible_build_ids = []
+        for dic in possible_builds:
+            possible_build_ids.append(dic['id'])
+
+        hand_ids = []
+        for dic in self.hand.cards:
+            hand_ids.append(dic['id'])       
+
+        if play_action_vec:
+            play_action = 'build'
+        else:
+            play_action = 'discard'
+
+        if play_action == 'build':
+            print('build')
+            #card_id_played = random.randint(0,len(possible_builds)-1)
+            played_card = self.get_card_by_id(card_id_played)
+            self.exp.add_card(played_card) # add card to expedition
+            self.hand.remove_card(played_card) # remove card from hand
+        
+        elif play_action == 'discard':
+            print('discard')
+            #card_id_played = random.randint(0,len(self.hand.cards)-1)
+            played_card = self.get_card_by_id(card_id_played)
+            self.centre_pile.add_card(played_card) # add card to centre pile
+            self.hand.remove_card(played_card) # remove card from hand
+
+
+        # if no cards on discard deck, draw from blind deck
+        visible_cards = self.centre_pile.get_visible_cards()
+        
+        if draw_action_id == 0:
+            draw_action = 'draw_blind'
+        elif draw_action_id == 1:
+            draw_action = 'draw_discard'
+
+        if draw_action == 'draw_blind':
+            print('draw blind')
+            new_card = self.card_deck.pop()
+            self.hand.add_card(new_card)
+
+        elif draw_action == 'draw_discard':
+            print('draw discard')
+            #card_id_draw = draw_card_id
+            new_card = self.get_card_by_id(draw_card_id)
+
+            #need to replace card id by color pile here
+            self.centre_pile.draw_card(new_card) # add card to centre pile
+            self.hand.add_card(played_card) # remove card from hand 
 
 
 #%%
+
+
+env = CustomEnv()
+env.reset()
+for _ in range(10):
+    action = env.action_space.sample()
+    obs, reward, done, info = env.step(action)
+
+
+#%%
+
+
 
 env = gym.make('LostCities-v0').unwrapped
 
@@ -169,12 +312,38 @@ def select_action(state):
         # t.max(1) will return largest column value of each row.
         # second column on max result is index of where max element was
         # found, so we pick action with the larger expected reward.
-        return policy_net(state).max(1)[1].view(1, 1)
+            return policy_net(state).max(1)[1].view(1, 1)
     else:
         return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long)
 
 episode_durations = []
 
-
 #%%
 
+env = CustomEnv()
+
+
+num_steps = 1500
+
+obs = env.reset()
+
+for step in range(num_steps):
+    # take random action, but you can also do something more intelligent
+    # action = my_intelligent_agent_fn(obs) 
+    action = env.action_space.sample()
+    
+    # apply the action
+    obs, reward, done, info = env.step(action)
+    
+    # Render the env
+    env.render()
+
+    # Wait a bit before the next frame unless you want to see a crazy fast video
+    #time.sleep(0.001)
+    
+    # If the epsiode is up, then start another one
+    if done:
+        env.reset()
+
+# Close the env
+env.close()
