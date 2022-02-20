@@ -25,8 +25,6 @@ from classes import Hand, Expedition, Pile
 #%% we need to make a custom environment
 
 
-
-
 class CustomEnv(gym.Env):
 
     def __init__(self,):
@@ -40,7 +38,8 @@ class CustomEnv(gym.Env):
 
         self.action_space = spaces.Tuple((
                 spaces.Discrete(2), # play or discard
-                spaces.Discrete(60), #60 possible cards to be played or discarded
+                #spaces.Discrete(60), #60 possible cards to be played or discarded
+                spaces.Discrete(8), #8 possible cards in hand to play or discard
                 spaces.Discrete(2), #draw blind or from pile
                 spaces.Discrete(5))) #draw yellow, blue, white, red or green
 
@@ -53,7 +52,7 @@ class CustomEnv(gym.Env):
 
     def reset(self):
         # Reset the state of the environment to an initial state
-
+        self.current_player = 0
         total_cards = 60
         start_cards = 8
 
@@ -74,13 +73,13 @@ class CustomEnv(gym.Env):
 
         random.shuffle(self.card_deck)
 
-        self.hand = Hand()
-        self.exp = Expedition()
+        self.hands = [Hand(),Hand()]
+        self.exps = [Expedition(),Expedition()]
         self.centre_pile = Pile()
-
-        for card_idx in range(start_cards):
-            self.hand.add_card(self.card_deck.pop())
-            #self.hand.add_card(self.card_deck.pop())
+        for player_idx in range(2):
+            for card_idx in range(start_cards):
+                self.hands[player_idx].add_card(self.card_deck.pop())
+            #self.hands[self.current_player].add_card(self.card_deck.pop())
 
     def get_card_by_id(self, id):
 
@@ -98,12 +97,21 @@ class CustomEnv(gym.Env):
         # Execute one time step within the environment
         self._take_action(action)
         self.current_step += 1
-        
-        reward = 0
+        if len(self.card_deck) == 0:
+            done = True
+        else:
+            done = False
+        reward = self.exps[self.current_player].get_total_score()
         obs = self._next_observation()
-        print(obs)
-        done = False
+        #print(obs)
         info = {}
+
+        #switch players
+        if self.current_player == 0:
+            self.current_player = 1
+        else:
+            self.current_player = 0
+
         return obs, reward, done, info
 
 
@@ -114,22 +122,23 @@ class CustomEnv(gym.Env):
         for card in visible_cards:
             visible_card_ids.append(card['id'])
 
-        visible_cards_obs = np.zeros((5))
-        visible_cards_obs[0:len(visible_card_ids)] = np.asarray(visible_card_ids)
+        visible_cards_obs = np.zeros((1,5),dtype=np.int8)
+        visible_cards_obs[0,0:len(visible_card_ids)] = np.asarray(visible_card_ids,dtype=np.int8)
 
-        top_cards = self.exp.get_top_cards()
+        top_cards = self.exps[self.current_player].get_top_cards()
         top_cards_ids = []
         for card in top_cards:
             top_cards_ids.append(card['id'])
 
-        top_cards_obs = np.zeros((5))
-        top_cards_obs[0:len(top_cards_ids)] = np.asarray(top_cards_ids)
+        top_cards_obs = np.zeros((1,5),dtype=np.int8)
+        top_cards_obs[0,0:len(top_cards_ids)] = np.asarray(top_cards_ids,dtype=np.int8)
 
-        hand_cards = self.hand.cards
+        hand_cards = self.hands[self.current_player].cards
         hand_cards_ids = []
         for card in hand_cards:
             hand_cards_ids.append(card['id'])
-        hand_cards_obs = np.asarray(hand_cards_ids)
+        hand_cards_obs = np.zeros((1,8),dtype=np.int8)
+        hand_cards_obs[:] = np.asarray(hand_cards_ids,dtype=np.int8)
 
         obs = (visible_cards_obs,top_cards_obs,hand_cards_obs)
         return obs
@@ -147,20 +156,19 @@ class CustomEnv(gym.Env):
         draw_pile_id = action[3]
 
         #determine here if actions are legal, if not, give negative reward
-        #TODO: implement illegal moves 
-
-
+        #TODO: implement illegal moves, look up what to do in case
+        #or provide action mask outside gym env
 
         print(action)
 
-        possible_builds = self.exp.get_possible_builds(self.hand.cards)
+        possible_builds = self.exps[self.current_player].get_possible_builds(self.hands[self.current_player].cards)
         
         possible_build_ids = []
         for dic in possible_builds:
             possible_build_ids.append(dic['id'])
 
         hand_ids = []
-        for dic in self.hand.cards:
+        for dic in self.hands[self.current_player].cards:
             hand_ids.append(dic['id'])       
 
         if play_action_vec:
@@ -171,16 +179,18 @@ class CustomEnv(gym.Env):
         if play_action == 'build':
             print('build')
             #card_id_played = random.randint(0,len(possible_builds)-1)
-            played_card = self.get_card_by_id(card_id_played)
-            self.exp.add_card(played_card) # add card to expedition
-            self.hand.remove_card(played_card) # remove card from hand
+            #played_card = self.get_card_by_id(card_id_played)
+            played_card = self.hands[self.current_player].cards[card_id_played]
+            self.exps[self.current_player].add_card(played_card) # add card to expedition
+            self.hands[self.current_player].remove_card(played_card) # remove card from hand
         
         elif play_action == 'discard':
             print('discard')
-            #card_id_played = random.randint(0,len(self.hand.cards)-1)
-            played_card = self.get_card_by_id(card_id_played)
+            #card_id_played = random.randint(0,len(self.hands[self.current_player].cards)-1)
+            #played_card = self.get_card_by_id(card_id_played)
+            played_card = self.hands[self.current_player].cards[card_id_played]
             self.centre_pile.add_card(played_card) # add card to centre pile
-            self.hand.remove_card(played_card) # remove card from hand
+            self.hands[self.current_player].remove_card(played_card) # remove card from hand
 
 
         # if no cards on discard deck, draw from blind deck
@@ -194,7 +204,7 @@ class CustomEnv(gym.Env):
         if draw_action == 'draw_blind':
             print('draw blind')
             new_card = self.card_deck.pop()
-            self.hand.add_card(new_card)
+            self.hands[self.current_player].add_card(new_card)
 
         elif draw_action == 'draw_discard':
             print('draw discard')
@@ -204,21 +214,100 @@ class CustomEnv(gym.Env):
             #new_card = self.centre_pile.piles[color][-1]
             #need to replace card id by color pile here
             drawn_card = self.centre_pile.draw_card_by_color(color) # add card to centre pile
-            self.hand.add_card(played_card) # remove card from hand 
+            self.hands[self.current_player].add_card(drawn_card) # remove card from hand 
+
+    def check_if_action_valid(self,action):
+
+        play_action_vec = action[0] # play or discard
+        card_id_played = action[1] #60 possible cards to be played or discarded
+        draw_action_id = action[2] #draw blind or from pile
+        draw_pile_id = action[3] #draw yellow, blue, white, red or green
+
+        if play_action_vec:
+            play_action = 'build'
+        else:
+            play_action = 'discard'
+
+
+        if draw_action_id == 0:
+            draw_action = 'draw_blind'
+        elif draw_action_id == 1:
+            draw_action = 'draw_discard'
+
+        
+        #1st check can we play? discard always possible
+        if play_action == 'discard':
+            play_action_check = True
+        elif play_action == 'build':
+            possible_builds = self.exps[self.current_player].get_possible_builds(self.hands[self.current_player].cards)
+            selected_card = self.hands[self.current_player].cards[card_id_played]
+            if selected_card in possible_builds:
+                play_action_check = True
+            else:
+                play_action_check = False
+
+
+        #2: card id is card in hand so always possible
+        # no, need to check if card id is in possible builds
+        # but we do this above now
+        
+        #if selected_card in possible_builds:
+
+
+
+        #3: draw blind or from pile: check is pile is not empty
+        # this check is redundant since we also check for color next check 
+        # however for now we keep it for informativeness
+        if draw_action == 'draw_discard':
+            if len(self.centre_pile.get_visible_cards())>0:
+                draw_action_check1 = True
+            else:
+                draw_action_check1 = False           
+        #4: is color available?
+
+            color = self.colors[draw_pile_id]
+            if len(self.centre_pile.piles[color])>0:
+                draw_action_check2 = True
+            else:
+                draw_action_check2 = False           
+
+            draw_action_check = draw_action_check1 and draw_action_check2
+
+        elif draw_action == 'draw_blind':
+                draw_action_check = True      
+
+        
+
+        if play_action_check and draw_action_check:
+            return True
+        else:
+            return False
+
 
 
 #%%
 
-
+done = False
 env = CustomEnv()
 env.reset()
-for _ in range(10):
-    action = env.action_space.sample()
-    obs, reward, done, info = env.step(action)
+for step_nr in range(200):
+    if done == False:
+        print(f'step no. {step_nr}')
+        action = env.action_space.sample()
+        print('--------------')
+        print('--------------')
+        print(action)
+        print('--------------')
+        valid = env.check_if_action_valid(action)
+        if valid:
+            print('valid')
+            obs, reward, done, info = env.step(action)
+            print('reward',reward)
+        else:
+            print('invalid')
 
 
 #%%
-
 
 
 env = gym.make('LostCities-v0').unwrapped
